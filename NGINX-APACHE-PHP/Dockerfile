@@ -13,31 +13,12 @@ RUN sed -i 's|listen = .*|listen = 9000|' /usr/local/etc/php-fpm.d/www.conf
 # ---------------- Apache (listen on 8080) ----------------
 RUN sed -i 's/Listen 80/Listen 8080/' /etc/apache2/ports.conf
 
-RUN echo '<VirtualHost *:8080>\n\
-    DocumentRoot /var/www/html\n\
-    <Directory /var/www/html>\n\
-        AllowOverride All\n\
-        Require all granted\n\
-    </Directory>\n\
-    <FilesMatch \\.php$>\n\
-        SetHandler "proxy:fcgi://127.0.0.1:9000"\n\
-    </FilesMatch>\n\
-</VirtualHost>' > /etc/apache2/sites-available/app.conf
+COPY /apache/app.conf /etc/apache2/sites-enabled/app.conf
 
-RUN a2dissite 000-default.conf && a2ensite app.conf
+RUN a2dissite 000-default.conf 
 
 # ---------------- Nginx (reverse proxy) ----------------
-RUN rm -f /etc/nginx/sites-enabled/default \
- && echo 'server {\n\
-    listen 80;\n\
-    server_name localhost;\n\
-    location / {\n\
-        proxy_pass http://127.0.0.1:8080;\n\
-        proxy_set_header Host $host;\n\
-        proxy_set_header X-Real-IP $remote_addr;\n\
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\
-    }\n\
-}' > /etc/nginx/sites-enabled/default
+COPY /nginx/default.conf /etc/nginx/sites-enabled/default
 
 # ---------------- App ----------------
 WORKDIR /var/www/html
