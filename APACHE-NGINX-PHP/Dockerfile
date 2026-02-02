@@ -8,26 +8,36 @@ RUN apt-get update && apt-get install -y \
     curl \
     && apt-get clean
 
-# Enable Apache modules
-RUN a2enmod proxy proxy_http proxy_fcgi rewrite
+# Enable required Apache modules
+RUN a2enmod proxy proxy_http proxy_fcgi proxy_connect rewrite
 
-# Change nginx to 8080
-RUN sed -i 's/listen 80;/listen 8080;/' /etc/nginx/sites-enabled/default
+# PHP-FPM
+RUN sed -i 's|listen = .*|listen = 9000|' /usr/local/etc/php-fpm.d/www.conf
 
-# Clean default sites
-#RUN rm -f /etc/nginx/sites-enabled/default
+# ---------- NGINX ----------
+# Remove default
+RUN rm -f /etc/nginx/sites-enabled/default
 
-# Apache → Nginx config
-COPY apache/app.conf /etc/apache2/sites-enabled/000-default.conf
+# Copy nginx vhost
+COPY nginx/default.conf /etc/nginx/sites-available/default.conf
 
-# Nginx → PHP-FPM config
-COPY nginx/nginx.conf /etc/nginx/sites-enabled/default
+# Enable site
+RUN ln -s /etc/nginx/sites-available/default.conf \
+          /etc/nginx/sites-enabled/default.conf
 
-# PHP app
-COPY hello.php /var/www/html
+# ---------- APACHE ----------
+# Copy Apache vhost
+COPY apache/app.conf /etc/apache2/sites-available/app.conf
+
+# Disable default and enable app
+RUN a2dissite 000-default.conf && a2ensite app.conf
+
+# ---------- APP ----------
+WORKDIR /var/www/html
+COPY hello.php .
 
 EXPOSE 80
 
-CMD php-fpm -D \
-    && nginx \
-    && apachectl -D FOREGROUND
+CMD php-fpm -D && \
+    nginx & \
+    exec apache2ctl -D FOREGROUND
