@@ -1,32 +1,30 @@
-# 1 Base image
-FROM node:18-bullseye
+# Small base image
+FROM node:18-alpine
 
-# 2 Install Nginx
-RUN apt-get update \
- && apt-get install -y nginx \
- && rm -rf /var/lib/apt/lists/*
+#  Install nginx + bash
+RUN apk add --no-cache nginx bash \
+    && mkdir -p /run/nginx
 
- # 3 Set working directory
+#  Install PM2 globally
+RUN npm install -g pm2
+
+#  Set working directory
 WORKDIR /app
 
-# 4 Copy package files first (cache optimization)
+#  Copy dependency files first (cache optimization)
 COPY package*.json ./
 
-# 5 Install Node dependencies
-RUN npm install
+#  Install ONLY production dependencies
+RUN npm ci --only=production
 
-
-# 6 Copy application source code
+#  Copy application source code
 COPY . .
 
-# 7 Copy Nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+#  Copy nginx config
+COPY nginx.conf /etc/nginx/http.d/default.conf
 
-# 8 Expose port 80
+#  Expose port
 EXPOSE 80
 
-# 9 Start PM2 + Nginx
-CMD ["./start.sh"]
-
-
-
+#  Start PM2 + Nginx
+CMD ["sh", "./start.sh"]
